@@ -1,0 +1,20 @@
+# 忽略 PDF 文件
+data/pdf/
+
+# 忽略 models 目錄下的所有檔案
+models/
+
+# 忽略 docker 相關的特定檔案，以保持環境的獨立性
+docker-compose.yml
+docker_entrypoint.sh
+Dockerfile
+
+# 忽略編譯產生或系統相關的檔案
+__pycache__/
+*.pyc
+savedstate.sav
+
+# 忽略 volumes 目錄下的所有內容，因為這些通常是動態生成的
+volumes/
+
+Northwind/
