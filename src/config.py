@@ -3,26 +3,28 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# LLM
-# MODEL_PATH  = os.getenv("MODEL_PATH", "models/llm/phi-2.Q4_K_S.gguf")
-# EMBED_MODEL = os.getenv("EMBED_MODEL", "intfloat/e5-small-v2")
-# USE_GPU     = os.getenv("USE_GPU", "true").lower() == "true"
-# N_CTX       = int(os.getenv("N_CTX", "2024"))
+# Ollama Provider
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama-alan:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_TEMPERATURE = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
+OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 
 # Milvus
-MILVUS_URI = os.getenv("MILVUS_URI", "tcp://standalone:19530")
-EMBED_DIM = int(os.getenv("EMBED_DIM", "2560"))
-MILVUS_USER    = os.getenv("MILVUS_USER")
+MILVUS_URI = os.getenv("MILVUS_URI", "tcp://milvus-standalone-alan:19530")
+EMBED_DIM = int(os.getenv("EMBED_DIM", "768"))
+MILVUS_USER    = os.getenv("MILVUS_USER", "root")
 MILVUS_PASS    = os.getenv("MILVUS_PASS")
+MILVUS_HOST = os.getenv("MILVUS_HOST", "milvus-standalone-alan")
+MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
 
 # MSSQL
-SQL_SERVER  = os.getenv("MSSQL_SERVER")
-SQL_DB      = os.getenv("MSSQL_DATABASE")
-SQL_USER    = os.getenv("MSSQL_USER")
-SQL_PWD     = os.getenv("MSSQL_PASSWORD")
-SQL_CHARSET = os.getenv("MSSQL_CHARSET", "utf8")
+MSSQL_SERVER  = os.getenv("MSSQL_SERVER", "140.118.115.196")
+MSSQL_DATABASE = os.getenv("MSSQL_DATABASE", "Northwind")
+MSSQL_USER    = os.getenv("MSSQL_USER", "llm")
+MSSQL_PASSWORD = os.getenv("MSSQL_PASSWORD", "1qaz2WSX")
+MSSQL_CHARSET = os.getenv("MSSQL_CHARSET", "utf8")
 
-# 新增 Ollama 相關配置
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")  # 或其他模型
-OLLAMA_TEMPERATURE = float(os.getenv("OLLAMA_TEMPERATURE", "0.0"))
+# PDF 
+PDF_DIRECTORY_PATH = os.getenv("PDF_DIRECTORY_PATH", "data/pdf")
+# Collection 
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "pdf_collection_from_folder")

@@ -1,6 +1,9 @@
 volumes/
 .env
+.env.example
 __pycache__/
+**/__pycache__/
+**/**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -8,3 +11,4 @@ __pycache__/
 .git
 .gitignore
 .vscode/ 
+.dockerignore
