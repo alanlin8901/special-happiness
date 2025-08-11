@@ -1,0 +1,14 @@
+volumes/
+.env
+.env.example
+__pycache__/
+**/__pycache__/
+**/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.git
+.gitignore
+.vscode/ 
+.dockerignore
