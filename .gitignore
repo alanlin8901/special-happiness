@@ -18,3 +18,5 @@ savedstate.sav
 volumes/
 
 Northwind/
+
+.env
