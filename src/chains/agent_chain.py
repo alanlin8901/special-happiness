@@ -7,7 +7,7 @@ from langchain_community.vectorstores import Milvus
 from langchain_ollama import OllamaLLM
 
 from src.config import (
-    COLLECTION_NAME, OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TEMPERATURE,
+    SQL_COLLECTION_NAME, PDF_COLLECTION_NAME, OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TEMPERATURE,
     OLLAMA_EMBED_MODEL, MILVUS_HOST, MILVUS_PORT
 )
 
@@ -26,7 +26,7 @@ def build_pdf_vector_engine():
     
     vector_store = Milvus(
         embedding_function=embeddings,
-        collection_name=COLLECTION_NAME,
+        collection_name=PDF_COLLECTION_NAME,
         connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
     )
     return vector_store
@@ -48,7 +48,7 @@ def build_sql_vector_engine():
     )
     vector_store = Milvus(
         embedding_function=embeddings,
-        collection_name="mssql_data",
+        collection_name=SQL_COLLECTION_NAME,
         connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
     )
     return vector_store

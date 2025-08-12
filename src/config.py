@@ -27,4 +27,5 @@ MSSQL_CHARSET = os.getenv("MSSQL_CHARSET", "utf8")
 # PDF 
 PDF_DIRECTORY_PATH = os.getenv("PDF_DIRECTORY_PATH", "data/pdf")
 # Collection 
-COLLECTION_NAME = os.getenv("COLLECTION_NAME", "pdf_collection_from_folder")
+PDF_COLLECTION_NAME = os.getenv("PDF_COLLECTION_NAME", "pdf_collection")
+SQL_COLLECTION_NAME = os.getenv("SQL_COLLECTION_NAME", "sql_collection")

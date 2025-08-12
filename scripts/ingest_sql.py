@@ -3,7 +3,7 @@ from langchain.schema.document import Document
 from langchain_community.vectorstores import Milvus
 from langchain_community.embeddings import OllamaEmbeddings
 from src.config import (
-    MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL,
+    MILVUS_HOST, MILVUS_PORT, SQL_COLLECTION_NAME, OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL,
     MSSQL_SERVER, MSSQL_DATABASE, MSSQL_USER, MSSQL_PASSWORD
 )
 
@@ -50,7 +50,7 @@ embeddings = OllamaEmbeddings(
 vector_store = Milvus.from_documents(
     documents=docs,
     embedding=embeddings,
-    collection_name=COLLECTION_NAME,
+    collection_name=SQL_COLLECTION_NAME,
     connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
     drop_old=True,
 )

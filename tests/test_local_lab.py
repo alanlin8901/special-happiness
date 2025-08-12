@@ -8,7 +8,7 @@ MILVUS_PORT = "19531"
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 # 您用來 ingest 的 collection 和 embedding 模型
-COLLECTION_NAME = "pdf_collection_from_folder"
+COLLECTION_NAME = "pdf_collection"
 OLLAMA_EMBED_MODEL = "nomic-embed-text" 
 
 # --- 2. 初始化連線 ---

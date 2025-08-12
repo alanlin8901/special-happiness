@@ -109,7 +109,7 @@ OLLAMA_EMBED_MODEL=your-embedding-model
 # Milvus Configuration  
 MILVUS_HOST=standalone
 MILVUS_PORT=19530
-COLLECTION_NAME=lab_papers
+COLLECTION_NAME_1=collection-name
 
 # Database Configuration (Optional - for vector embeddings only)
 MSSQL_SERVER=your-sql-server

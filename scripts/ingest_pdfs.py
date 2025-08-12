@@ -12,7 +12,7 @@ from langchain.schema.document import Document
 
 from src.config import (
     OLLAMA_BASE_URL, PDF_DIRECTORY_PATH, MILVUS_HOST,
-    MILVUS_PORT, COLLECTION_NAME, OLLAMA_EMBED_MODEL,
+    MILVUS_PORT, PDF_COLLECTION_NAME, OLLAMA_EMBED_MODEL,
 )
 
 # --- 1. 輔助函式 ---
@@ -89,16 +89,16 @@ if __name__ == "__main__":
     print(f"\n✅ [成功] 已連接到 Ollama Embedding 模型: {OLLAMA_EMBED_MODEL}")
 
     BATCH_SIZE = 500
-    print(f"\n[開始] 準備將 {len(docs_unified)} 個文件以批次寫入 Milvus collection: {COLLECTION_NAME} ...")
+    print(f"\n[開始] 準備將 {len(docs_unified)} 個文件以批次寫入 Milvus collection: {PDF_COLLECTION_NAME} ...")
     try:
         for i in range(0, len(docs_unified), BATCH_SIZE):
             batch = docs_unified[i:i+BATCH_SIZE]
             Milvus.from_documents(
                 documents=batch,
                 embedding=embeddings,
-                collection_name=COLLECTION_NAME,
+                collection_name=PDF_COLLECTION_NAME,
                 connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
-                drop_old=(i == 0)  # 只第一次刪除重建 collection
+                drop_old=(i == 0)
             )
             print(f"  ✅ 已寫入第 {i} ~ {i+len(batch)-1} 筆文件。")
         print("✅ [成功] LangChain 'from_documents' 批次寫入 Milvus 完成！")
