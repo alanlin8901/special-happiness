@@ -6,19 +6,18 @@ A comprehensive RAG (Retrieval-Augmented Generation) system that combines PDF do
 
 This project provides:
 - **PDF Document RAG**: Search and retrieve information from research papers stored in Milvus vector database
-- **SQL Database Integration**: Query and analyze Northwind database with natural language
-- **AI Agent Framework**: LangChain-powered agent that can use multiple tools (PDF search, SQL queries, calculations)
+- **Database Content Search**: Semantic search over embedded MSSQL textual data
+- **AI Agent Framework**: LangChain-powered agent that can use multiple tools (PDF search, vector search, calculations)
 - **Web Interface**: Open WebUI for easy interaction with the AI system
 - **Vector Search**: Semantic search capabilities for both documents and database content
 
 ## Architecture
 
-- **Milvus**: Vector database for storing PDF embeddings and SQL data embeddings
+- **Milvus**: Vector database for storing PDF embeddings and MSSQL data embeddings
 - **Ollama**: Local LLM service for text generation and embeddings
 - **FastAPI**: REST API backend implementing OpenAI-compatible endpoints
-- **LangChain**: Agent framework for tool orchestration
+- **LangChain**: Agent framework for tool orchestration and reasoning
 - **Open WebUI**: Web interface for chat interactions
-- **SQL Server**: Northwind demo database for structured data queries
 
 ## Services
 
@@ -93,11 +92,9 @@ curl -N -X POST http://localhost:8081/v1/chat/completions \
 The AI agent has access to several tools:
 
 1. **LabPaperSearch**: RAG search over PDF documents for research questions
-2. **MSSQLVectorSearch**: Semantic search over database content
-3. **SQLSchema**: Get database table structures
-4. **SQLQuery**: Execute SQL queries on the Northwind database
-5. **Python_REPL**: Execute Python code for calculations
-6. **LLMAnswer**: General purpose text generation
+2. **MSSQLVectorSearch**: Semantic search over embedded database content
+3. **Python_REPL**: Execute Python code for calculations and data analysis
+4. **LLMAnswer**: General purpose text generation and explanations
 
 ## Configuration
 
@@ -114,9 +111,9 @@ MILVUS_HOST=standalone
 MILVUS_PORT=19530
 COLLECTION_NAME=lab_papers
 
-# Database Configuration
+# Database Configuration (Optional - for vector embeddings only)
 MSSQL_SERVER=your-sql-server
-MSSQL_DATABASE=Northwind
+MSSQL_DATABASE=your-database
 MSSQL_USER=your-username
 MSSQL_PASSWORD=your-password
 ```
@@ -188,10 +185,10 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
    - Check Milvus collection exists
    - Verify embedding model is loaded
 
-4. **SQL queries failing**:
-   - Check database connection settings
-   - Verify Northwind database schema
-   - Review SQL syntax in agent output
+4. **Vector search not working**:
+   - Check Milvus connection settings
+   - Verify data collections exist in Milvus
+   - Review embedding model configuration
 
 ### Logs and Debugging
 ```bash
