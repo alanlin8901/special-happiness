@@ -2,20 +2,13 @@
 
 from langchain.agents import initialize_agent, AgentType, Tool
 from langchain_experimental.tools.python.tool import PythonREPLTool
-from langchain_community.utilities import SQLDatabase
-from sqlalchemy import create_engine
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import Milvus
-from langchain_experimental.sql.base import SQLDatabaseSequentialChain
-from langchain_community.vectorstores import Milvus
 from langchain_ollama import OllamaLLM
-from sqlalchemy.exc import SQLAlchemyError
-import re
 
 from src.config import (
     COLLECTION_NAME, OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TEMPERATURE,
-    OLLAMA_EMBED_MODEL, MILVUS_HOST, MILVUS_PORT,
-    MSSQL_SERVER, MSSQL_DATABASE, MSSQL_USER, MSSQL_PASSWORD
+    OLLAMA_EMBED_MODEL, MILVUS_HOST, MILVUS_PORT
 )
 
 def get_llm():
@@ -24,27 +17,6 @@ def get_llm():
         model=OLLAMA_MODEL,
         temperature=OLLAMA_TEMPERATURE,
     )
-
-def build_sql_db():
-    uri = (
-        f"mssql+pyodbc://{MSSQL_USER}:{MSSQL_PASSWORD}@{MSSQL_SERVER}/{MSSQL_DATABASE}"
-        f"?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
-    )
-    engine = create_engine(uri)
-    return SQLDatabase(engine)
-
-def extract_sql(text: str) -> str:
-    fence = re.search(r"```sql\s*(.+?)```", text, re.IGNORECASE | re.DOTALL)
-    if fence:
-        candidate = fence.group(1).strip()
-    else:
-        txt = text.strip().strip("`")
-        start = re.search(r"(select|with|insert|update|delete|exec)\b.*", txt, re.IGNORECASE | re.DOTALL)
-        candidate = start.group(0).strip() if start else txt
-    first = candidate.split(";")[0].strip()
-    if not first:
-        return first
-    return first if first.endswith(";") else first + ";"
 
 def build_pdf_vector_engine():
     embeddings = OllamaEmbeddings(
@@ -93,38 +65,7 @@ def mssql_vector_search_fn(query: str):
 def llm_answer_fn(query: str):
     return get_llm()(query)
 
-# 簡單路由：描述型 Northwind 問題不進工具推理，直接回答，避免解析錯誤循環
-NORTHWIND_DESC_KEYWORDS = ["northwind", "purpose", "overview", "用途", "概述", "介紹", "是什麼"]
-
-def maybe_direct_answer(question: str):
-    q = question.lower()
-    if "northwind" in q and any(k in q for k in ["purpose", "overview", "用途", "概述", "介紹", "是什麼"]):
-        # 簡短描述，可自行再調整
-        desc = (
-            "Northwind 是常用的示範/教學交易資料庫，模擬一間進出口/批發公司，包含 Products, Categories, Suppliers, Customers, Employees, Orders, OrderDetails, Shippers, Region 等表，可用於展示查詢、統計、關聯與報表。"
-        )
-        return f"Final Answer: {desc}"
-    return None
-
 def init_agent():
-    db = build_sql_db()
-
-    def sql_query_tool(q: str):
-        sql = extract_sql(q)
-        if not sql:
-            return "SQL_ERROR: empty SQL extracted from input. Provide a SELECT ... statement."
-        try:
-            return db.run(sql)
-        except SQLAlchemyError as e:
-            return f"SQL_ERROR: {e.__class__.__name__}: {e}"
-        except Exception as e:
-            return f"SQL_ERROR: {e}"
-
-    def sql_schema_tool(_: str):
-        try:
-            return db.get_table_info()
-        except Exception as e:
-            return f"SCHEMA_ERROR: {e}"
 
     tools = [
         Tool(
@@ -136,16 +77,6 @@ def init_agent():
             name="MSSQLVectorSearch",
             func=mssql_vector_search_fn,
             description="Use for semantic search over MSSQL data in Milvus (returns short snippets)."
-        ),
-        Tool(
-            name="SQLSchema",
-            func=sql_schema_tool,
-            description="Get current MSSQL table structures before writing a query. Always call if unsure of column names."
-        ),
-        Tool(
-            name="SQLQuery",
-            func=sql_query_tool,
-            description="Execute ONE MSSQL statement. Input MUST be pure SQL only (no explanation) ending with a semicolon."
         ),
         Tool(
             name="Python_REPL",
@@ -180,17 +111,14 @@ def init_agent():
         llm=get_llm(),
         agent_type=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,
         max_iterations=10,
-        handle_parsing_errors="Final Answer: 抱歉模型格式解析失敗，以下是根據目前資訊的最終回答。",
+        handle_parsing_errors="Final Answer: Sorry, the model format parsing failed. Here is the final answer based on the current information.",
         verbose=True,
         agent_kwargs=agent_kwargs
     )
 
-    # 包一層 run，先嘗試直接回答描述型問題
+    # run
     class _Wrapped:
         def run(self, question: str):
-            direct = maybe_direct_answer(question)
-            if direct:
-                return direct
             return agent.run(question)
 
     return _Wrapped()
