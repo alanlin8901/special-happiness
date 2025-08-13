@@ -27,7 +27,7 @@ This project provides:
 | Open WebUI | openwebui-alan | 3001:8080 | Web chat interface |
 | Ollama | ollama-alan | 11434:11434 | Local LLM service |
 | Milvus | milvus-standalone-alan | 19531:19530 | Vector database |
-| MinIO | milvus-minio-alan | 9002:9000, 9003:9001 | Object storage for Milvus |
+| MinIO | milvus-minio-alan | 9007:9000, 9005:9001 | Object storage for Milvus |
 | etcd | milvus-etcd-alan | - | Metadata storage for Milvus |
 
 ## Quick Start

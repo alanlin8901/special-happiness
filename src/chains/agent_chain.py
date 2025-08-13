@@ -1,124 +1,144 @@
-# agent.py
+from fastapi import APIRouter, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import List, Literal, Optional, Generator
+from datetime import datetime
+import json
+import time
+from hashlib import sha256
+from threading import Lock
 
-from langchain.agents import initialize_agent, AgentType, Tool
-from langchain_experimental.tools.python.tool import PythonREPLTool
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.vectorstores import Milvus
-from langchain_ollama import OllamaLLM
+from src.config import OLLAMA_MODEL 
+from src.chains.agent_chain import init_agent, get_llm
 
-from src.config import (
-    SQL_COLLECTION_NAME, PDF_COLLECTION_NAME, OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TEMPERATURE,
-    OLLAMA_EMBED_MODEL, MILVUS_HOST, MILVUS_PORT
-)
+router = APIRouter()
 
-def get_llm():
-    return OllamaLLM(
-        base_url=OLLAMA_BASE_URL,
-        model=OLLAMA_MODEL,
-        temperature=OLLAMA_TEMPERATURE,
-    )
+AVAILABLE_MODELS = [
+    {"id": OLLAMA_MODEL, "object": "model"}
+]
 
-def build_pdf_vector_engine():
-    embeddings = OllamaEmbeddings(
-        model=OLLAMA_EMBED_MODEL,
-        base_url=OLLAMA_BASE_URL
-    )
-    
-    vector_store = Milvus(
-        embedding_function=embeddings,
-        collection_name=PDF_COLLECTION_NAME,
-        connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
-    )
-    return vector_store
+agent = init_agent()
 
-def labpapersearch_fn(query: str):
-    vector_store = build_pdf_vector_engine()
-    docs = vector_store.similarity_search(query, k=3)
-    summarized = []
-    for i, d in enumerate(docs):
-        meta_src = d.metadata.get("source", "paper") if hasattr(d, "metadata") else "paper"
-        content = d.page_content if hasattr(d, "page_content") else str(d)
-        summarized.append(f"[{i+1}] {meta_src}: {content[:220].replace('\n',' ')}...")
-    return "\n".join(summarized) if summarized else "NO_MATCH"
+# --- dedup cache (短期快取，避免同一請求短時間重算) ---
+_CACHE_TTL_SEC = 15
+_CACHE: dict[str, dict] = {}
+_CACHE_LOCK = Lock()
 
-def build_sql_vector_engine():
-    embeddings = OllamaEmbeddings(
-        model=OLLAMA_EMBED_MODEL,
-        base_url=OLLAMA_BASE_URL
-    )
-    vector_store = Milvus(
-        embedding_function=embeddings,
-        collection_name=SQL_COLLECTION_NAME,
-        connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
-    )
-    return vector_store
+def _req_key(model: str, messages: List["Message"], raw: bool) -> str:
+    payload = {
+        "model": model,
+        "raw": raw,
+        "messages": [{"role": m.role, "content": m.content} for m in messages],
+    }
+    s = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return sha256(s.encode("utf-8")).hexdigest()
 
-def mssql_vector_search_fn(query: str):
-    vector_store = build_sql_vector_engine()
-    docs = vector_store.similarity_search(query, k=3)
-    summarized = []
-    for i, d in enumerate(docs):
-        content = d.page_content if hasattr(d, "page_content") else str(d)
-        summarized.append(f"[{i+1}] {content[:200].replace('\n',' ')}...")
-    return "\n".join(summarized) if summarized else "NO_MATCH"
+def _cache_get(key: str) -> Optional[str]:
+    now = time.time()
+    with _CACHE_LOCK:
+        item = _CACHE.get(key)
+        if item and (now - item["ts"] <= _CACHE_TTL_SEC):
+            return item["answer"]
+    return None
 
-def llm_answer_fn(query: str):
-    return get_llm()(query)
+def _cache_set(key: str, answer: str) -> None:
+    with _CACHE_LOCK:
+        _CACHE[key] = {"ts": time.time(), "answer": answer}
 
-def init_agent():
+class Message(BaseModel):
+    role: Literal["user", "assistant", "system"]
+    content: str
 
-    tools = [
-        Tool(
-            name="LabPaperSearch",
-            func=labpapersearch_fn,
-            description="Use for questions answerable from the lab's PDF corpus (RAG search). Returns short snippets."
-        ),
-        Tool(
-            name="MSSQLVectorSearch",
-            func=mssql_vector_search_fn,
-            description="Use for semantic search over MSSQL data in Milvus (returns short snippets)."
-        ),
-        Tool(
-            name="Python_REPL",
-            func=PythonREPLTool().run,
-            description="Execute Python code."
-        ),
-        Tool(
-            name="LLMAnswer",
-            func=llm_answer_fn,
-            description="Use for general non-database, non-PDF questions or descriptive Northwind overview if no data retrieval needed."
-        ),
-    ]
+class ChatRequest(BaseModel):
+    model: str
+    messages: List[Message]
+    stream: Optional[bool] = True
 
-    agent_kwargs = {
-        "system_message": (
-            "You are a helpful research assistant.\n"
-            "If the user asks a general descriptive question about the Northwind database (overview / purpose / what it is) answer DIRECTLY using LLMAnswer WITHOUT calling SQL tools unless explicit data is requested.\n"
-            "Tools:\n"
-            "- LabPaperSearch: research / paper / dataset / algorithm questions needing PDF snippets.\n"
-            "- MSSQLVectorSearch: semantic search over embedded MSSQL textual fragments.\n"
-            "- SQLSchema: when unsure about table/column names BEFORE writing SQLQuery.\n"
-            "- SQLQuery: ONE clean pure SQL statement (no prose) ending with a semicolon.\n"
-            "- Python_REPL: calculations.\n"
-            "- LLMAnswer: general reasoning / explanations / Northwind overview.\n"
-            "If SQLQuery returns SQL_ERROR, fix once then proceed. Minimize tool calls.\n"
-            "Format for reasoning steps (when using tools):\nThought: <reason>\nAction: <tool name>\nAction Input: <input>\nAfter final reasoning output exactly one line starting with 'Final Answer:' followed by the answer only.\n"
-        )
+def _build_completion(answer: str, model: str):
+    return {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": int(datetime.utcnow().timestamp()),
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": answer},
+                "finish_reason": "stop"
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     }
 
-    agent = initialize_agent(
-        tools=tools,
-        llm=get_llm(),
-        agent_type=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-        max_iterations=10,
-        handle_parsing_errors="Final Answer: Sorry, the model format parsing failed. Here is the final answer based on the current information.",
-        verbose=True,
-        agent_kwargs=agent_kwargs
-    )
+def _select_model_answer(model: str, prompt: str, raw: bool) -> str:
+    if model != OLLAMA_MODEL:
+        return f"Unknown model: {model}"
+    if raw:
+        return get_llm()(prompt)
+    return agent.run(prompt)
 
-    # run
-    class _Wrapped:
-        def run(self, question: str):
-            return agent.run(question)
+@router.post("/v1/chat/completions")
+async def chat(req: ChatRequest, raw: bool = Query(False)):
+    # 構建去重 key
+    key = _req_key(req.model, req.messages, raw)
+    cached = _cache_get(key)
 
-    return _Wrapped()
+    # 非串流：直接用快取或計算後回傳
+    if not req.stream:
+        if cached is None:
+            user_message = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+            answer = _select_model_answer(req.model, user_message, raw)
+            _cache_set(key, answer)
+        else:
+            answer = cached
+        return _build_completion(answer, req.model)
+
+    # 串流：先快速送出一個空增量，再計算，最後送出完整內容
+    def stream_gen() -> Generator[bytes, None, None]:
+        created = int(datetime.utcnow().timestamp())
+
+        # 先送一個空增量，避免前端把連線當成無回應而重試
+        init_chunk = {
+            "id": "chatcmpl-1",
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": req.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": ""},
+                    "finish_reason": None
+                }
+            ]
+        }
+        yield f"data: {json.dumps(init_chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+
+        # 計算答案（可用快取）
+        ans = _cache_get(key)
+        if ans is None:
+            user_message = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+            ans = _select_model_answer(req.model, user_message, raw)
+            _cache_set(key, ans)
+
+        # 實際內容
+        delta = {
+            "id": "chatcmpl-1",
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": req.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": ans},
+                    "finish_reason": None
+                }
+            ]
+        }
+        yield f"data: {json.dumps(delta, ensure_ascii=False)}\n\n".encode("utf-8")
+        yield b"data: [DONE]\n\n"
+
+    return StreamingResponse(stream_gen(), media_type="text/event-stream")
+
+@router.get("/v1/models")
+def list_models():
+    return {"object": "list", "data": AVAILABLE_MODELS}

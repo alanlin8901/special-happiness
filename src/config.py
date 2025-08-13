@@ -12,8 +12,8 @@ OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 # Milvus
 MILVUS_URI = os.getenv("MILVUS_URI", "tcp://milvus-standalone-alan:19530")
 EMBED_DIM = int(os.getenv("EMBED_DIM", "768"))
-MILVUS_USER    = os.getenv("MILVUS_USER", "root")
-MILVUS_PASS    = os.getenv("MILVUS_PASS")
+MILVUS_USER = os.getenv("MILVUS_USER", "root")
+MILVUS_PASS = os.getenv("MILVUS_PASS")
 MILVUS_HOST = os.getenv("MILVUS_HOST", "milvus-standalone-alan")
 MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
 

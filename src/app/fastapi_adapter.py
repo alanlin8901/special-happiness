@@ -5,12 +5,11 @@ from typing import List, Literal, Optional, Generator
 from datetime import datetime
 import json
 
-from src.config import OLLAMA_MODEL   # 新增
-from src.chains.agent_chain import init_agent, get_llm  # 若 get_llm 尚未 export 就補 export
+from src.config import OLLAMA_MODEL 
+from src.chains.agent_chain import init_agent, get_llm
 
 router = APIRouter()
 
-# 唯一模型 (id 與前端顯示一致)
 AVAILABLE_MODELS = [
     {"id": OLLAMA_MODEL, "object": "model"}
 ]
