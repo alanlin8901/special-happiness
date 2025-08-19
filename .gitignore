@@ -6,7 +6,6 @@ models/
 
 # 忽略 docker 相關的特定檔案，以保持環境的獨立性
 docker-compose.yml
-docker_entrypoint.sh
 Dockerfile
 
 # 忽略編譯產生或系統相關的檔案
